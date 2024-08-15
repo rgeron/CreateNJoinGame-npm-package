@@ -18,25 +18,24 @@ class CreateNJoin {
 
   ////////////////////////// CREATE GAME
 
-  /**
+   /**
    * Creates a new game, sets up initial information in Firestore, and returns the game PIN.
    *
-   * @param {Object} additionalGameInfo - Additional information to be stored in the game document.
-   * @param {Object} initialInfo - Initial information for the game.
-   * @param {Function} onGameCreated - Callback function executed after the game is created. Receives the PIN as an argument.
-   * @param {string} [pathRR] - Optional path to navigate to using React Router.
-   * @param {Object} [stateRR] - Optional state to pass with React Router navigation.
-   * @param {string} [path] - Optional path for standard navigation with window location href.
+   * @param {Object} [additionalGameInfo={}] - Additional information to be stored in the game document.
+   * @param {Object} [initialInfo={}] - Initial information for the game.
+   * @param {Object} [options={}] - Optional settings including navigation paths and callback functions.
+   * @param {Function} [options.onGameCreated] - Callback function executed after the game is created. Receives the PIN as an argument.
+   * @param {string} [options.pathRR] - Optional path to navigate to using React Router.
+   * @param {Object} [options.stateRR] - Optional state to pass with React Router navigation.
+   * @param {string} [options.path] - Optional path for standard navigation with window location href.
    * @returns {Promise<string>} The generated game PIN.
    * @throws {Error} If there's an error creating the game.
    */
+
   async createGameAsync(
     additionalGameInfo = {}, 
     initialInfo = {}, 
-    onGameCreated = (pin) => { console.log(`Game created with PIN: ${pin}`); },
-    pathRR = null, // Path for React Router
-    stateRR = null, // State for React Router
-    path = null // Path for standard navigation
+    options = {}
   ) {
     try {
       const pin = this.generatePIN();
@@ -53,15 +52,11 @@ class CreateNJoin {
       });
 
       // Call the user-provided function or the default one after the game is created
-      onGameCreated(pin);
+      if (options.onGameCreated) options.onGameCreated(pin);
 
       // Handle React Router navigation if pathRR is provided
-      if (pathRR) {
-        if (this.navigate) {
-          this.navigate(pathRR.replace(':pin', pin), { state: stateRR });
-        } else {
-          console.warn('React Router navigation requested but navigate function is not available.');
-        }
+      if (options.pathRR || options.path) {
+        this.handleNavigation(pin, options);
       }
 
       // Handle standard navigation if path is provided
@@ -82,21 +77,19 @@ class CreateNJoin {
    * Checks if a game with the given PIN exists and executes a callback based on the result.
    *
    * @param {string} pin - The PIN of the game to join.
-   * @param {Function} onPinExists - Callback function executed if the game exists. Receives the game document and PIN as arguments.
-   * @param {Function} [onPinDoesNotExist] - Callback function executed if the game does not exist. Defaults to throwing an error.
-   * @param {string} [pathRR] - Optional path to navigate to using React Router.
-   * @param {Object} [stateRR] - Optional state to pass with React Router navigation.
-   * @param {string} [path] - Optional path for standard navigation with window location href.
+   * @param {Object} [options={}] - Optional settings including navigation paths and callback functions.
+   * @param {Function} [options.onPinExists] - Callback function executed if the game exists. Receives the game document and PIN as arguments.
+   * @param {Function} [options.onPinDoesNotExist] - Callback function executed if the game does not exist. Defaults to throwing an error.
+   * @param {string} [options.pathRR] - Optional path to navigate to using React Router.
+   * @param {Object} [options.stateRR] - Optional state to pass with React Router navigation.
+   * @param {string} [options.path] - Optional path for standard navigation with window location href.
    * @returns {Promise<void>}
    * @throws {Error} If there's an error checking the PIN existence.
    */
+
   async joinGameWithPinAsync(
     pin, 
-    onPinExists, 
-    onPinDoesNotExist = () => { throw new Error('Invalid PIN: The game with the provided PIN does not exist.'); },
-    pathRR = null, // Path for React Router
-    stateRR = null, // State for React Router
-    path = null // Path for standard navigation
+    options = {}
   ) {
     try {
       const gameRef = doc(this.db, 'games', pin);
@@ -104,26 +97,26 @@ class CreateNJoin {
       
       if (gameDoc.exists()) {
         // Call the function provided for when the PIN exists
-        onPinExists(gameDoc, pin);
+        if (options.onPinExists) options.onPinExists(gameDoc, pin);
 
-        // Handle React Router navigation if pathRR is provided
-        if (pathRR) {
-          if (this.navigate) {
-            this.navigate(pathRR, { state: stateRR });
-          } else {
-            console.warn('React Router navigation requested but navigate function is not available.');
-          }
+        // Handle navigation if paths are provided
+        if (options.pathRR || options.path) {
+          this.handleNavigation(pin, options);
         }
-
-        // Handle standard navigation if path is provided
-        if (path && !pathRR) { // Only perform standard navigation if React Router navigation is not used
-          window.location.href = path.replace(':pin', pin); // Replace :pin with actual PIN
-        }
-      } else {
+      } 
+      
+      else {
         // Call the default or provided function for when the PIN does not exist
-        onPinDoesNotExist();
+        if (options.onPinDoesNotExist) {
+          options.onPinDoesNotExist();
+        } 
+        else {
+          throw new Error('Invalid PIN: The game with the provided PIN does not exist.');
+        }
       }
-    } catch (error) {
+    } 
+    
+    catch (error) {
       console.error('Error checking PIN existence:', error);
       throw error;
     }
@@ -131,27 +124,26 @@ class CreateNJoin {
 
   ////////////////////////// SUBMIT NEW INFO
 
-  /**
+   /**
    * Submits information for a player joining the game and updates the game document.
    *
    * @param {string} pin - The PIN of the game.
    * @param {string} userName - The name of the player.
-   * @param {Object} [additionalPlayerInfo] - Additional information for the player.
-   * @param {Function} [onSubmit] - Callback function executed after the player joins. Receives the player key as an argument.
-   * @param {string} [pathRR] - Optional path to navigate to using React Router.
-   * @param {Object} [stateRR] - Optional state to pass with React Router navigation.
-   * @param {string} [path] - Optional path for standard navigation with window location href.
+   * @param {Object} [additionalPlayerInfo={}] - Additional information for the player.
+   * @param {Object} [options={}] - Optional settings including navigation paths and callback functions.
+   * @param {Function} [options.onSubmit] - Callback function executed after the player joins. Receives the player key as an argument.
+   * @param {string} [options.pathRR] - Optional path to navigate to using React Router.
+   * @param {Object} [options.stateRR] - Optional state to pass with React Router navigation.
+   * @param {string} [options.path] - Optional path for standard navigation with window location href.
    * @returns {Promise<string>} The key assigned to the player.
    * @throws {Error} If there's an error saving the information.
    */
-  async handleSubmitAsync(
+
+ async handleSubmitAsync(
     pin, 
     userName, 
     additionalPlayerInfo = {}, 
-    onSubmit = (playerKey) => { console.log(`Player ${playerKey} has joined the game.`); },
-    pathRR = null, // Path for React Router
-    stateRR = null, // State for React Router
-    path = null // Path for standard navigation
+    options = {}
   ) {
     try {
       const gameRef = doc(this.db, 'games', pin);
@@ -180,20 +172,11 @@ class CreateNJoin {
       });
 
       // Call the user-provided function or the default one after submission
-      onSubmit(playerKey);
+      if (options.onSubmit) options.onSubmit(playerKey);
 
-      // Handle React Router navigation if pathRR is provided
-      if (pathRR) {
-        if (this.navigate) {
-          this.navigate(pathRR.replace(':pin', pin), { state: stateRR });
-        } else {
-          console.warn('React Router navigation requested but navigate function is not available.');
-        }
-      }
-
-      // Handle standard navigation if path is provided
-      if (path && !pathRR) { // Only perform standard navigation if React Router navigation is not used
-        window.location.href = path.replace(':pin', pin); // Replace :pin with actual PIN
+      // Handle navigation if paths are provided
+      if (options.pathRR || options.path) {
+        this.handleNavigation(pin, options);
       }
 
       return playerKey; // Return the player key
@@ -203,25 +186,21 @@ class CreateNJoin {
     }
   }
 
-  ////////////////////////// START GAME
-
-  /**
+   /**
    * Starts the game by updating the game status and applying custom game logic if provided.
    *
    * @param {string} pin - The PIN of the game.
-   * @param {Function} [customGameLogic] - Optional function to apply custom logic to the game data before updating the game status.
-   * @param {string} [pathRR] - Optional path to navigate to using React Router.
-   * @param {Object} [stateRR] - Optional state to pass with React Router navigation.
-   * @param {string} [path] - Optional path for standard navigation with window location href.
+   * @param {Object} [options={}] - Optional settings including navigation paths and callback functions.
+   * @param {Function} [options.customGameLogic] - Optional function to apply custom logic to the game data before updating the game status.
+   * @param {string} [options.pathRR] - Optional path to navigate to using React Router.
+   * @param {Object} [options.stateRR] - Optional state to pass with React Router navigation.
+   * @param {string} [options.path] - Optional path for standard navigation with window location href.
    * @returns {Promise<void>}
    * @throws {Error} If there's an error starting the game.
    */
-  async handleStartGameAsync(
+   async handleStartGameAsync(
     pin, 
-    customGameLogic = (gameData) => gameData,
-    pathRR = null, // Path for React Router
-    stateRR = null, // State for React Router
-    path = null // Path for standard navigation
+    options = {}
   ) {
     try {
       const gameRef = doc(this.db, 'games', pin);
@@ -233,85 +212,110 @@ class CreateNJoin {
       }
 
       // Use custom game logic or default to just returning the game data unchanged
-      const updatedGameData = await customGameLogic(gameData);
+      const updatedGameData = options.customGameLogic ? await options.customGameLogic(gameData) : gameData;
 
       await updateDoc(gameRef, {
         ...updatedGameData,
         gameStatus: 'inProgress'
       });
 
-      // Handle React Router navigation if pathRR is provided
-      if (pathRR) {
-        if (this.navigate) {
-          this.navigate(pathRR, { state: stateRR });
-        } else {
-          console.warn('React Router navigation requested but navigate function is not available.');
-        }
+      // Handle navigation if paths are provided
+      if (options.pathRR || options.path) {
+        this.handleNavigation(pin, options);
       }
-
-      // Handle standard navigation if path is provided
-      if (path && !pathRR) { // Only perform standard navigation if React Router navigation is not used
-        window.location.href = path.replace(':pin', pin); // Replace :pin with actual PIN
-      }
-
     } catch (error) {
       console.error('Error starting the game:', error);
       throw error;
     }
   }
 
-  /////////////////////////// END GAME
+
+/////////////////////////// END GAME
 
   /**
    * Ends the game by updating the game status and executing any additional logic provided by the user.
    *
    * @param {string} pin - The PIN of the game.
-   * @param {Function} [onGameEnd] - Optional callback function to execute after the game ends. Receives the game reference as an argument.
-   * @param {string} [pathRR] - Optional path to navigate to using React Router.
-   * @param {Object} [stateRR] - Optional state to pass with React Router navigation.
-   * @param {string} [path] - Optional path for standard navigation with window location href.
+   * @param {Object} [options={}] - Optional settings including navigation paths and callback functions.
+   * @param {Function} [options.onGameEnd] - Callback function executed after the game ends. Receives the game reference as an argument.
+   * @param {string} [options.pathRR] - Optional path to navigate to using React Router.
+   * @param {Object} [options.stateRR] - Optional state to pass with React Router navigation.
+   * @param {string} [options.path] - Optional path for standard navigation with window location href.
    * @returns {Promise<void>}
    * @throws {Error} If there's an error ending the game.
    */
   async handleEndGameAsync(
     pin, 
-    onGameEnd = null,
-    pathRR = null, // Path for React Router
-    stateRR = null, // State for React Router
-    path = null // Path for standard navigation
+    options = {}
   ) {
     try {
       const gameRef = doc(this.db, 'games', pin);
-      
+
       // Update the game status to 'finished'
       await updateDoc(gameRef, {
         gameStatus: 'finished',
       });
-  
+
       // Execute any additional logic provided by the user
-      if (onGameEnd) {
-        await onGameEnd(gameRef);
+      if (typeof options.onGameEnd === 'function') {
+        await options.onGameEnd(gameRef);
       }
 
-      // Handle React Router navigation if pathRR is provided
-      if (pathRR) {
-        if (this.navigate) {
-          this.navigate(pathRR, { state: stateRR });
-        } else {
-          console.warn('React Router navigation requested but navigate function is not available.');
-        }
+      // Handle navigation if paths are provided
+      if (options.pathRR || options.path) {
+        this.handleNavigation(pin, options);
       }
-
-      // Handle standard navigation if path is provided
-      if (path && !pathRR) { // Only perform standard navigation if React Router navigation is not used
-        window.location.href = path.replace(':pin', pin); // Replace :pin with actual PIN
-      }
-
     } catch (error) {
       console.error('Error ending the game:', error);
-      throw error;
+      throw new Error(`Failed to end the game: ${error.message}`);
     }
   }
+
+
+
+ ////////////////////////// OBSERVERS
+
+  /**
+   * Sets up a listener for real-time updates to a game document.
+   *
+   * @param {string} pin - The PIN of the game to listen to.
+   * @param {Function} callback - The function to call with the updated game data whenever a change occurs.
+   * @returns {Function} A function to unsubscribe from the listener.
+   */
+  observeGame(pin, callback) {
+    const gameRef = doc(this.db, 'games', pin);
+    const unsubscribe = onSnapshot(gameRef, (doc) => {
+      callback(doc.data());
+    }, (error) => {
+      console.error('Error observing game updates:', error);
+    });
+
+    return unsubscribe; // Return the unsubscribe function to allow stopping the listener
+  }
+
+  ////////////////////////// NAVIGATION HANDLING
+
+  /**
+   * Handles navigation based on provided paths and options.
+   *
+   * @param {string} pin - The PIN of the game for which navigation is being handled.
+   * @param {Object} options - Options containing navigation paths and state.
+   */
+  handleNavigation(pin, options) {
+    if (this.navigate) {
+      // React Router navigation
+      if (options.pathRR) {
+        this.navigate(options.pathRR, { state: { pin, ...options.stateRR } });
+      }
+    } else {
+      // Standard navigation
+      if (options.path) {
+        window.location.href = `${options.path}?pin=${pin}`;
+      }
+    }
+  }
+
+
 
   // HELPER FUNCTION
 
@@ -413,4 +417,10 @@ class CreateNJoin {
   }
 }
 
+/// FOr CommonJS
 module.exports = CreateNJoin;
+
+
+/// For ES Modules
+export default CreateNJoin;
+

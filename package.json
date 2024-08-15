@@ -2,7 +2,7 @@
   "name": "create-and-join-game",
   "version": "1.0.0",
   "description": "Starting point to build a multiplayer game for people on the same room",
-  "main": "index.js",
+  "main": "CreateNJoin.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -12,7 +12,10 @@
   },
   "keywords": [
     "game",
-    "foundation"
+    "foundation",
+    "create",
+    "join",
+    "npm"
   ],
   "author": "Raphaël Géron (hack-life team)",
   "license": "ISC",
